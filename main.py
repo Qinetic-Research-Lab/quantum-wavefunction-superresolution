@@ -8,12 +8,11 @@ Steps
 2. Train QuantumResNet with validation tracking, LR scheduling, and early stopping.
 3. Benchmark: HR eigsh vs. (LR eigsh + model inference).
 4. Evaluate quantum fidelity on a held-out test set.
-5. Save comparison plots, error analysis, and metrics to results/.
+5. Save plots, training log, and benchmark notes to outputs/.
 """
 
 import argparse
 import csv
-import json
 import os
 import time
 
@@ -25,11 +24,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from physics_engine import QuantumSolver
 from model import QuantumResNet
 from utils import (
-    normalize_wavefunction,
     quantum_fidelity,
     save_comparison_plot,
     save_error_plot,
-    save_fidelity_vs_omega_plot,
 )
 
 # -----------------------------------------------------------------
@@ -45,7 +42,6 @@ DEFAULTS = dict(
     batch_size=64,
     lr=1e-3,
     test_split=0.1,
-    n_plots=8,
     base_channels=64,
     patience=7,
     cache_dir="data_cache",
@@ -69,7 +65,6 @@ def parse_args():
     p.add_argument("--batch-size", type=int, default=DEFAULTS["batch_size"])
     p.add_argument("--lr", type=float, default=DEFAULTS["lr"])
     p.add_argument("--test-split", type=float, default=DEFAULTS["test_split"])
-    p.add_argument("--n-plots", type=int, default=DEFAULTS["n_plots"])
     p.add_argument("--base-channels", type=int, default=DEFAULTS["base_channels"])
     p.add_argument("--patience", type=int, default=DEFAULTS["patience"],
                     help="Early stopping patience (0 to disable)")
@@ -79,7 +74,8 @@ def parse_args():
                     help="Disable dataset caching (regenerate every run)")
     p.add_argument("--load", type=str, default=None, metavar="PATH",
                     help="Load a trained model and skip training (inference only)")
-    p.add_argument("--results-dir", type=str, default="results")
+    p.add_argument("--output-dir", type=str, default="outputs",
+                    help="Root directory for plots, logs, and benchmark notes")
     return p.parse_args()
 
 
@@ -240,7 +236,7 @@ def main():
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    os.makedirs(args.results_dir, exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, "plots"), exist_ok=True)
     rng = np.random.default_rng(args.seed)
     solver = QuantumSolver(L=10.0, n_high=1024, n_low=64,
                            potential=args.potential)
@@ -284,7 +280,7 @@ def main():
         torch.save(model.state_dict(), "quantum_model.pth")
         print("\nModel saved -> quantum_model.pth")
 
-        _save_training_curves(history, args.results_dir)
+        _save_training_artifacts(history, args.output_dir)
 
     # ---- 3. Benchmark ------------------------------------------------
     print("\nBenchmarking (50 runs each) ...")
@@ -314,35 +310,43 @@ def main():
     print(f"  Min    = {fidelities.min():.6f}")
     print(f"  Max    = {fidelities.max():.6f}")
 
-    # ---- 5. Comparison plots -----------------------------------------
-    plot_indices = np.linspace(0, n_test - 1, min(args.n_plots, n_test), dtype=int)
-    for idx in plot_indices:
-        omega = omegas_test[idx]
-        F = fidelities[idx]
-        save_comparison_plot(
-            x_hr, psi_hr_test[idx],
-            x_lr, psi_lr_test[idx],
-            preds[idx], omega,
-            save_path=os.path.join(args.results_dir,
-                                   f"comparison_omega_{omega:.3f}.png"),
-            fidelity=F,
-        )
-    print(f"\n{len(plot_indices)} comparison plots saved to {args.results_dir}/")
+    # ---- 5. Canonical plots ------------------------------------------
+    plots_dir = os.path.join(args.output_dir, "plots")
+    median_idx = int(np.argsort(fidelities)[len(fidelities) // 2])
+    save_comparison_plot(
+        x_hr, psi_hr_test[median_idx],
+        x_lr, psi_lr_test[median_idx],
+        preds[median_idx], omegas_test[median_idx],
+        save_path=os.path.join(plots_dir, "wavefunction_comparison.png"),
+        fidelity=fidelities[median_idx],
+    )
 
-    # ---- 6. Error analysis -------------------------------------------
-    _run_error_analysis(x_hr, psi_hr_test, preds, omegas_test, fidelities,
-                        dx_hr, args.results_dir, speedup, hr_t, lr_ml_t, history)
+    worst_idx = int(np.argmin(fidelities))
+    save_error_plot(
+        x_hr, psi_hr_test[worst_idx], preds[worst_idx],
+        omegas_test[worst_idx], fidelities[worst_idx],
+        save_path=os.path.join(plots_dir, "pointwise_residuals.png"),
+    )
+    print(f"\nPlots saved to {plots_dir}/")
+
+    # ---- 6. Benchmark notes ------------------------------------------
+    _save_benchmark_results(
+        args.output_dir, speedup, hr_t, lr_ml_t, fidelities, history,
+    )
 
 
 # -----------------------------------------------------------------
 # Helpers for saving artefacts
 # -----------------------------------------------------------------
 
-def _save_training_curves(history, results_dir):
-    """Save train/val loss curves as a plot."""
+def _save_training_artifacts(history, output_dir):
+    """Save loss curves plot and per-epoch training log CSV."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
+    plots_dir = os.path.join(output_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
 
     epochs = range(1, len(history["train_loss"]) + 1)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
@@ -362,72 +366,56 @@ def _save_training_curves(history, results_dir):
     ax2.grid(True, alpha=0.3)
 
     fig.tight_layout()
-    fig.savefig(os.path.join(results_dir, "training_curves.png"), dpi=150)
+    fig.savefig(os.path.join(plots_dir, "loss_curves.png"), dpi=150)
     plt.close(fig)
-    print("Training curves saved -> training_curves.png")
 
-
-def _run_error_analysis(x_hr, psi_hr_test, preds, omegas_test, fidelities,
-                        dx_hr, results_dir, speedup, hr_t, lr_ml_t, history):
-    """Generate error analysis plots and save metrics to CSV/JSON."""
-    n_test = len(fidelities)
-
-    # Pointwise error plots for worst and best predictions
-    sorted_idx = np.argsort(fidelities)
-    worst_indices = sorted_idx[:3]
-    best_indices = sorted_idx[-3:]
-    for label, indices in [("worst", worst_indices), ("best", best_indices)]:
-        for rank, idx in enumerate(indices):
-            save_error_plot(
-                x_hr, psi_hr_test[idx], preds[idx],
-                omegas_test[idx], fidelities[idx],
-                save_path=os.path.join(results_dir,
-                                       f"error_{label}_{rank+1}_omega_{omegas_test[idx]:.3f}.png"),
-            )
-
-    # Fidelity vs omega scatter
-    save_fidelity_vs_omega_plot(
-        omegas_test, fidelities,
-        save_path=os.path.join(results_dir, "fidelity_vs_omega.png"),
-    )
-
-    # Metrics CSV (per-sample)
-    csv_path = os.path.join(results_dir, "test_metrics.csv")
-    with open(csv_path, "w", newline="") as f:
+    log_path = os.path.join(output_dir, "training_log.csv")
+    with open(log_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["sample_idx", "omega", "fidelity", "mse"])
-        for i in range(n_test):
-            mse = float(np.mean((preds[i] - psi_hr_test[i]) ** 2))
-            writer.writerow([i, f"{omegas_test[i]:.6f}",
-                             f"{fidelities[i]:.8f}", f"{mse:.8e}"])
+        writer.writerow(["epoch", "train_loss", "val_loss", "lr"])
+        for i, epoch in enumerate(epochs):
+            writer.writerow([
+                epoch,
+                f"{history['train_loss'][i]:.8e}",
+                f"{history['val_loss'][i]:.8e}",
+                f"{history['lr'][i]:.2e}",
+            ])
 
-    # Summary JSON
-    summary = {
-        "n_test": n_test,
-        "fidelity_mean": float(fidelities.mean()),
-        "fidelity_median": float(np.median(fidelities)),
-        "fidelity_min": float(fidelities.min()),
-        "fidelity_max": float(fidelities.max()),
-        "fidelity_std": float(fidelities.std()),
-        "speedup": float(speedup),
-        "hr_time_ms": float(hr_t * 1e3),
-        "lr_ml_time_ms": float(lr_ml_t * 1e3),
-    }
+    print("Training artefacts saved -> outputs/plots/loss_curves.png, outputs/training_log.csv")
+
+
+def _save_benchmark_results(output_dir, speedup, hr_t, lr_ml_t, fidelities, history):
+    """Write human-readable benchmark and evaluation notes."""
+    path = os.path.join(output_dir, "benchmark_results.txt")
+    lines = [
+        "Quantum Wavefunction Upsampling — Benchmark Results",
+        "=" * 52,
+        "",
+        "Timing (50-run average per sample)",
+        f"  HR eigsh          : {hr_t * 1e3:8.2f} ms",
+        f"  LR eigsh + model  : {lr_ml_t * 1e3:8.2f} ms",
+        f"  Speed-up factor   : {speedup:.2f}x",
+        "",
+        f"Quantum fidelity ({len(fidelities)} test samples)",
+        f"  Mean   : {fidelities.mean():.6f}",
+        f"  Median : {np.median(fidelities):.6f}",
+        f"  Min    : {fidelities.min():.6f}",
+        f"  Max    : {fidelities.max():.6f}",
+        f"  Std    : {fidelities.std():.6f}",
+    ]
     if history is not None:
-        summary["final_train_loss"] = history["train_loss"][-1]
-        summary["final_val_loss"] = history["val_loss"][-1]
-        summary["best_val_loss"] = min(history["val_loss"])
-        summary["epochs_trained"] = len(history["train_loss"])
+        lines.extend([
+            "",
+            "Training summary",
+            f"  Epochs trained : {len(history['train_loss'])}",
+            f"  Best val loss  : {min(history['val_loss']):.8e}",
+            f"  Final train    : {history['train_loss'][-1]:.8e}",
+            f"  Final val      : {history['val_loss'][-1]:.8e}",
+        ])
 
-    json_path = os.path.join(results_dir, "summary.json")
-    with open(json_path, "w") as f:
-        json.dump(summary, f, indent=2)
-
-    print(f"\nError analysis saved to {results_dir}/:")
-    print(f"  - 6 pointwise error plots (3 best, 3 worst)")
-    print(f"  - fidelity_vs_omega.png")
-    print(f"  - test_metrics.csv ({n_test} rows)")
-    print(f"  - summary.json")
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"Benchmark notes saved -> {path}")
 
 
 if __name__ == "__main__":

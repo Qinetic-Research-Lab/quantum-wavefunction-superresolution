@@ -6,12 +6,9 @@ __pycache__/
 venv/
 .env
 
-# Generated artifacts (keep folder structure via .gitkeep)
-outputs/models/*.pth
-outputs/plots/*.png
-outputs/logs/*.csv
+# Generated data caches (large, reproducible)
 data/*.npy
-quantum_model.pth
+data_cache/
 
 # IDE / OS
 .vscode/

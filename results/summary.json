@@ -1,0 +1,15 @@
+{
+  "n_test": 200,
+  "fidelity_mean": 0.9999052624813168,
+  "fidelity_median": 0.9999349687426741,
+  "fidelity_min": 0.9996328850960747,
+  "fidelity_max": 0.9999439807728654,
+  "fidelity_std": 6.098604252084638e-05,
+  "speedup": 3.6207586014386584,
+  "hr_time_ms": 29.582893999759108,
+  "lr_ml_time_ms": 8.170357998460531,
+  "final_train_loss": 7.201403566594106e-06,
+  "final_val_loss": 4.810182763321791e-06,
+  "best_val_loss": 4.7912280933815055e-06,
+  "epochs_trained": 30
+}
