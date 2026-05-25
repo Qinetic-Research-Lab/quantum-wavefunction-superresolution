@@ -1,0 +1,4 @@
+# Minimal guardrail: crash-prone regressions such as forgetting `import time`.
+# Extend `select` as the project grows.
+[lint]
+select = ["F821"]

@@ -1,0 +1,2 @@
+# Dev / CI: undefined-name lint (catches missing imports before runtime).
+ruff>=0.8

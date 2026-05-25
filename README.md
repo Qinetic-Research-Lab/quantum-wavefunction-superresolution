@@ -8,6 +8,15 @@ Harmonic oscillator (and alternatives) ground states on a coarse grid upsampled 
 python -m pip install -r requirements.txt
 ```
 
+### Development checks
+
+Install dev tools and lint for **undefined names** (`F821`) so missing imports (e.g. `time`, `subprocess` in [`main.py`](main.py)) are caught before runtime. `python -m py_compile` alone does **not** load function bodies fully enough to warn about this.
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m ruff check main.py physics_engine.py model.py utils.py
+```
+
 ## Training (default)
 
 Writes artifacts under **`outputs/`** (`plots/`, **`models/quantum_model.pth`**, `training_log.csv`, `benchmark_results.txt`):
