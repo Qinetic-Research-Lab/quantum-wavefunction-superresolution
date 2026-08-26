@@ -27,6 +27,26 @@ python main.py
 
 Data split: **72% train**, **18% validation** (early stopping only), **10% test** (never seen during training). Dataset cache stays in **`data_cache/`** (gitignored unless you configure otherwise).
 
+## Reproducing the paper's numbers
+
+`python main.py` (defaults: seed 42, n=2000, 30 epochs) retrains the model and writes
+`outputs/benchmark_results.txt`, the timing and fidelity summary reported in the paper.
+Then:
+
+```bash
+python analysis/baseline_comparison.py
+```
+
+scores the trained checkpoint against cubic-spline and Fourier zero-padding baselines on
+the held-out test split, using the same fidelity function as the training pipeline, and
+writes per-sample metrics (`outputs/analysis/test_metrics_canonical.csv`) plus every
+statistic in the paper (`outputs/analysis/summary_canonical.json`).
+
+Timing numbers in `benchmark_results.txt` are machine- and load-dependent.
+
+**Note:** `outputs/legacy_from_results/` archives an earlier, superseded run from an older
+repository layout; its values differ from the paper's and are not used by it.
+
 ### Inference-only (no dataset cache / loading)
 
 Loads weights from **`PATH`**, skips `load_or_generate`, evaluates on **fresh random solves** (default **20** samples):
