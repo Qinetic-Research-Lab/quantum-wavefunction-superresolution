@@ -102,7 +102,8 @@ def main() -> None:
                 "min": f_cnn.min(), "max": f_cnn.max(),
                 "std": f_cnn.std(ddof=0)},
         "spline": {"mean": f_spl.mean(), "median": float(np.median(f_spl)),
-                   "min": f_spl.min(), "std": f_spl.std(ddof=0)},
+                   "min": f_spl.min(), "max": f_spl.max(),
+                   "std": f_spl.std(ddof=0)},
         "fft_mean": f_fft.mean(),
         "wins_overall": wins,
         "wins_low_omega_lt1.5": [int((inf_c[lo] < inf_s[lo]).sum()),
@@ -142,8 +143,8 @@ def main() -> None:
     with open(OUT_DIR / "test_metrics_canonical.csv", "w") as f:
         f.write("sample_idx,omega,F_cnn,F_spline,F_fft\n")
         for i in range(n_test):
-            f.write(f"{i},{om_t[i]:.6f},{f_cnn[i]:.8f},"
-                    f"{f_spl[i]:.8f},{f_fft[i]:.8f}\n")
+            f.write(f"{i},{om_t[i]:.6f},{f_cnn[i]:.10f},"
+                    f"{f_spl[i]:.10f},{f_fft[i]:.10f}\n")
     with open(OUT_DIR / "summary_canonical.json", "w") as f:
         json.dump(summary, f, indent=2, default=float)
 
