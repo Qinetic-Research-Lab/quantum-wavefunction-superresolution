@@ -1,0 +1,24 @@
+Quantum Wavefunction Upsampling — Benchmark Results
+====================================================
+
+Evaluation mode : training pipeline (held-out test)
+Dataset description : held-out test set (200 samples)
+
+Timing (50-run average per sample)
+  HR eigsh          :    28.50 ms
+  LR eigsh + model  :     6.03 ms
+  Speed-up factor   : 4.73x
+
+Quantum fidelity (200 samples)
+  Mean   : 0.999847
+  Median : 0.999900
+  Min    : 0.999428
+  Max    : 0.999915
+  Std    : 0.000110
+WARNING: 0/200 samples below fidelity threshold (F < 0.99)
+
+Training summary
+  Epochs trained : 30
+  Best val loss  : 7.21330821e-06
+  Final train    : 8.59797676e-06
+  Final val      : 7.21330821e-06

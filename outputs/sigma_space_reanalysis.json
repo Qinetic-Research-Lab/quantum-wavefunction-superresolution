@@ -1,0 +1,59 @@
+{
+  "n": 200,
+  "omega_midpoint_source": "outputs/analysis/summary_canonical.json",
+  "omega_midpoint": 2.7498664701272597,
+  "spearman_cnn_infidelity": {
+    "vs_omega": {
+      "rho": 0.026085652141303536,
+      "p": 0.7138749504561608
+    },
+    "vs_abs_omega_minus_mid": {
+      "rho": 0.8612585314632867,
+      "p": 4.040719500217752e-60
+    },
+    "vs_sigma": {
+      "rho": -0.026085652141303536,
+      "p": 0.7138749504561608
+    },
+    "vs_log_omega": {
+      "rho": 0.026085652141303536,
+      "p": 0.7138749504561608
+    }
+  },
+  "spearman_spline_infidelity": {
+    "vs_omega": {
+      "rho": 1.0,
+      "p": 0.0
+    },
+    "vs_abs_omega_minus_mid": {
+      "rho": 0.031052276306907677,
+      "p": 0.6624752988245229
+    },
+    "vs_sigma": {
+      "rho": -1.0,
+      "p": 0.0
+    },
+    "vs_log_omega": {
+      "rho": 1.0,
+      "p": 0.0
+    }
+  },
+  "table1_edge_bins": {
+    "low_range": [
+      0.5,
+      1.4
+    ],
+    "high_range": [
+      4.1,
+      5.0
+    ],
+    "n_low": 36,
+    "n_high": 40,
+    "cnn_infid_low": 0.0003199804833333307,
+    "cnn_infid_high": 0.000223326165000004,
+    "ratio_low_over_high": 1.4327944212597075,
+    "paper_low": 0.00032,
+    "paper_high": 0.000223,
+    "paper_ratio_approx": 1.4
+  }
+}
