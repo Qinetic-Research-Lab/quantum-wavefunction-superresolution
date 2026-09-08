@@ -54,9 +54,9 @@ S = dict(
     h1=ParagraphStyle("h1", fontName="NB", fontSize=12, leading=14,
                       spaceBefore=6, spaceAfter=2),
     body=ParagraphStyle("b", fontName="NR", fontSize=10, leading=11.6,
-                        alignment=TA_JUSTIFY, spaceAfter=1.3),
+                        alignment=TA_JUSTIFY, spaceAfter=1.1),
     cap=ParagraphStyle("c", fontName="NR", fontSize=8.6, leading=10.2,
-                       alignment=TA_JUSTIFY, spaceBefore=3, spaceAfter=4),
+                       alignment=TA_JUSTIFY, spaceBefore=2, spaceAfter=3),
     refs=ParagraphStyle("r", fontName="NR", fontSize=8.8, leading=10.4,
                         alignment=TA_JUSTIFY, leftIndent=12, firstLineIndent=-12,
                         spaceAfter=2),
@@ -99,7 +99,7 @@ story.append(P(
  "organized over the frequency range. The difference is sharpest where the physics is easiest: in the "
  "lowest-frequency bin, where the coarse grid resolves the state best, the spline attains its lowest error "
  "while the network attains its highest, on identical inputs. Spline infidelity is perfectly "
- f"rank-correlated with frequency (Spearman {R} = +1.000), a resolution-limited failure, whereas network "
+ f"rank-correlated with frequency (Spearman {R} = +1.000), a family-agnostic failure, whereas network "
  f"infidelity follows an inverted-U over the sampled interval, worst at both edges ({R} = +0.861 against "
  "distance from the midpoint). Retraining on a wider interval moved error off the old edges but not "
  "symmetrically onto the new ones, only partly supporting a training-density explanation.", "abs"))
@@ -113,8 +113,8 @@ story.append(P(
  "convolutional network, QuantumResNet, to map a 64-point coarse ground state of the quantum harmonic oscillator "
  "to its 1024-point counterpart, scored by quantum fidelity."))
 story.append(P(
- "The 1D harmonic oscillator does not need machine learning; it solves in tens of milliseconds on our hardware. "
- "It is a controlled setting with exact ground truth across a densely sampled parameter family. Since a cubic "
+ "The 1D harmonic oscillator does not need machine learning; it solves in tens of milliseconds and offers exact "
+ "ground truth across a densely sampled parameter family. Since a cubic "
  "spline clears <i>F</i> &gt; 0.99 across the whole range, a higher mean fidelity for the network would say "
  "little; the informative question is what organizes each method's error, and the answer differs: the "
  "spline's by undersampling, the network's by position within its training range."))
@@ -134,7 +134,7 @@ story.append(P(
  "whereas we reconstruct the eigenvector; Li et al. [5] apply super-resolution-inspired upsampling to electron "
  "densities, scoring by energy error. Neural-network quantum states parameterize the wavefunction variationally "
  "with no precomputed ground truth [6]. That learned surrogates degrade away from their training distribution is "
- "well documented: neural operators fail on out-of-domain PDE inputs at high "
+ "well documented: Mouli et al. [7] report neural operators failing on out-of-domain PDE inputs at high "
  "in-domain accuracy, and Gopakumar et al. [8] give conformal coverage across a surrogate's operating domain "
  "under an exchangeability assumption. What this setting adds is separability: a "
  "classical baseline runs on identical inputs and its error is ordered by physics without exception "
@@ -161,9 +161,9 @@ story.append(P(
  "batch 64), MSE loss, cosine annealing over the 30-epoch budget; early stopping (patience 7) restored the "
  "best-validation checkpoint. A run takes 113 s on the CPU named in Section 4. Early stopping did not fire, "
  "which is not evidence of headroom: the schedule drives the learning rate to near zero by epoch 30 by "
- "construction. Robustness checks retrain the identical configuration under seeds 43 to 46, and one single-seed "
+ "construction. Robustness checks retrain the identical configuration under seeds 43 to 46; one single-seed "
  f"ablation retrains on {W} in [0.3, 7.0] with <i>N</i> = 3,000 (448 samples per unit {W} against the "
- "canonical 444; split 2,160/540/300)."))
+ "canonical 444)."))
 story.append(P(
  "<b>Metrics and baselines.</b> Fidelity is <i>F</i> = (\u03a3<sub>i</sub> \u03c8<sub>hr,i</sub> "
  "\u03c8<sub>pred,i</sub> \u0394<i>x</i>)<super>2</super>, both wavefunctions renormalized under the discrete-sum "
@@ -173,10 +173,10 @@ story.append(P(
  f"<i>moment oracle</i> estimates {W} from the coarse input alone through the ground-state identity "
  f"var(<i>x</i>) = 1/(2{W}) and emits the analytic ground state ({W}/\u03c0)<super>1/4</super> "
  f"exp({MINUS}{W}<i>x</i><super>2</super>/2) on the fine grid. The <i>inversion oracle</i> instead recovers "
- f"{W} by minimizing 1 \u2212 <i>F</i> between the input and the coarse finite-difference ground state at "
- f"{W} (bounded Brent, xatol 10<super>{MINUS}8</super>, seeded from the moment estimate), then emits the "
- "fine-grid finite-difference state at the recovered value; it is not a candidate method, costing a fine solve "
- "per sample, but a bound on the information the coarse input carries. All share the "
+ f"{W} by minimizing 1 \u2212 <i>F</i> between the input and the coarse finite-difference state at {W} "
+ f"(bounded Brent, xatol 10<super>{MINUS}8</super>, seeded from the moment estimate), then emits the "
+ f"fine-grid state at that {W}; it is not a candidate method, costing a fine solve per sample, but a bound on "
+ "the information the coarse input carries. All share the "
  "fidelity function and test slice; none is tuned. Error shapes are summarized by Spearman correlations of "
  f"infidelity against {W} and against |{W} \u2212 {W}<sub>mid</sub>| ({W}<sub>mid</sub> = 2.750). The second "
  "predictor is a folded transform of the first, so the pair restates Table 1's shapes and does not test "
@@ -184,14 +184,14 @@ story.append(P(
 
 story.append(P("4&nbsp;&nbsp;Results", "h1"))
 story.append(P(
- f"<b>Fidelity.</b> Train loss fell to {e('9.755', 6)} and validation to {e('7.895', 6)} without divergence. "
+ f"<b>Fidelity.</b> Train and validation loss fell to {e('9.755', 6)} and {e('7.895', 6)} without divergence. "
  "On the 200-sample test set the network reached mean fidelity 0.999832 (median 0.999889, min 0.999328, max "
- f"0.999909, std {e('1.13', 4)}), 0/200 below <i>F</i> = 0.99; the spline reached 0.999790 (median 0.999831, "
- f"min 0.999442, max 0.999995, std {e('1.65', 4)}). Across seeds 42 to 46, network mean fidelity is 0.999869 "
- "(range 0.999832 to 0.999914) and the spline's 0.999793 (0.999769 to 0.999818); seed 42, the headline run, "
+ f"0.999909, std {e('1.13', 4)}), 0/200 below <i>F</i> = 0.99; the spline reached 0.999790 (min 0.999442, "
+ f"max 0.999995, std {e('1.65', 4)}). Across seeds 42 to 46, network mean fidelity is 0.999869 "
+ "(range 0.999832 to 0.999914) seed 42, the headline run, "
  "is the lowest of the five. The Fourier baseline as first implemented scored 0.969008, a grid-convention error "
- "rather than a property of Fourier interpolation: the endpoint-inclusive 64-point array was transformed as if "
- "periodic in index space, a rigid shift of 0.149 length units at the domain centre. "
+ "rather than a property of Fourier interpolation: the endpoint-inclusive array was transformed as if periodic "
+ "in index space, shifting it 0.149 length units at the domain centre. "
  "Corrected, it scores 0.999770, comparable to the spline (Table 1). The moment oracle reaches 0.999789 and "
  f"tracks the spline bin by bin rather than the network, its {W} estimate carrying a mean |\u0394{W}| of 0.13. "
  f"The inversion oracle recovers {W} to a mean |\u0394{W}| of {e('6.09', 8)} (max {e('2.81', 7)}, with no "
@@ -228,7 +228,7 @@ tbl.setStyle(TableStyle([
 story.append(P(
  "<b>Matched comparison.</b> The network wins 132 of 200 matched samples (66%; one-sided binomial <i>p</i> = "
  f"{e('3.5', 6)}; Wilcoxon on paired infidelities <i>W</i> = 6588, <i>p</i> = {e('2.4', 5)}), with 1.25{X} "
- "lower mean infidelity overall. Both methods clear <i>F</i> &gt; 0.99 on every sample, so these are differences "
+ "lower mean infidelity. Both methods clear <i>F</i> &gt; 0.99 on every sample, so these are differences "
  "in the structure of very small errors, not a pass/fail separation. The aggregate conceals a reversal (Figure "
  "1): the network loses all 36 samples in the lowest bin and 32 of 36 in the second, then wins all 128 above. "
  f"Below {W} = 1.5 it wins 0 of 42; at {W} \u2265 3.5 it wins 65 of 65 with 2.31{X} lower mean "
@@ -242,18 +242,19 @@ story.append(KeepTogether([tbl, P(
     "FFT is the corrected Fourier baseline.", "cap")]))
 
 img = Image(str(FIG))
-img._restrictSize(TW, 1.45 * inch)
+img._restrictSize(TW, 1.25 * inch)
 story.append(KeepTogether([img, P(
  f"Figure 1: (a) Infidelity against {W} for spline and network on the 200 matched samples (open markers) with "
- f"bin means, log ordinate; the curves cross in the shaded band near {W} \u2248 2. (b) Per-sample ratio "
- "of spline to network infidelity; its crossing of unity locates the same transition.", "cap")]))
+ f"bin means, log ordinate; the curves cross near {W} \u2248 2 (shaded). (b) Per-sample ratio "
+ "of spline to network infidelity, crossing unity at the same transition.", "cap")]))
 
 story.append(P(
  "<b>Two error structures.</b> The clearest evidence comes from where the physics is easiest. In the lowest bin "
  f"the coarse grid is at its most generous, and the spline attains {e('2.03', 5)}, the lowest error of any "
  f"method in any bin; on those same samples the network attains {e('3.20', 4)}, its own worst and roughly "
- "three times its interior error. Since the spline is at its most accurate exactly there, undersampling "
- "cannot be what the network is failing on. Numerically, spline infidelity is perfectly "
+ "three times its interior error. All three classical baselines attain their lowest error in that bin, where "
+ "the network attains its highest, so undersampling cannot be what the network is failing on. Numerically, "
+ "spline infidelity is perfectly "
  f"rank-correlated with {W} ({R} = +1.000, zero inversions) and uncorrelated with the folded predictor "
  f"({R} = +0.031, <i>p</i> = 0.66); network infidelity is uncorrelated with {W} ({R} = +0.026, <i>p</i> = "
  f"0.71) and strongly correlated with distance from the midpoint ({R} = +0.861, <i>p</i> = {e('4.0', 60)}), "
@@ -274,33 +275,35 @@ story.append(P(
  "a candidate reason. The alternative that extremal widths are intrinsically hard for a fixed receptive field "
  "is not excluded either. The ablation is one seed, and its new low bin holds nine samples."))
 story.append(P(
- "<b>Timing (machine-specific).</b> Ten repetitions of the pipeline's 50-run benchmark on an Intel Core Ultra 7 "
+ "<b>Timing (machine-specific).</b> Ten repetitions of the 50-run benchmark on an Intel Core Ultra 7 "
  "256V (CPU): median 20.6 ms per 1024-point solve against 4.9 ms for the coarse solve plus inference, median "
  f"speedup 4.1{X} (range 3.1\u20134.9). These vary with machine and load and are not evidence of practical "
  "acceleration at a tens-of-milliseconds baseline."))
 
 story.append(P("5&nbsp;&nbsp;Discussion", "h1"))
 story.append(P(
- "The spline's error is bounded not by the information in its input but by its being family-agnostic: the "
+ "The spline's error is bounded not by the information in its input but by its family-agnosticism: the "
  f"inversion oracle recovers {W} from the same 64 samples to a mean absolute error of {e('6.09', 8)}, so the "
- "information is present and a family-blind interpolant simply cannot use it. The network's error is "
+ "information is present and a family-blind interpolant cannot use it. That gap also bears on the network, "
+ f"which reaches {e('1.68', 4)} where inverting the same family reaches round-off; inversion costs a fine "
+ "solve per sample and is no competing method, but it bounds what the network leaves unclaimed. Its error is "
  "instead a function of training-set design, and the ablation shows that moving a boundary moves the error, "
  f"though not symmetrically. A candidate explanation is that the relevant density is not in {W} but in the "
- f"shape the network must reproduce: uniform sampling in {W} gives a density per unit width {SG} scaling as "
+ f"shape reproduced: uniform sampling in {W} gives density per unit width {SG} scaling as "
  f"2/{SG}<super>3</super>, so broad, low-{W} states are sparsest in shape space and stay sparse after "
- f"widening, while narrow, high-{W} states are densely covered. That would produce the observed "
+ "widening. That would produce the observed "
  "pattern, but it is an inference, not a tested claim; a direct test would sample uniformly in "
  f"{SG} or log {W}."))
 story.append(P(
- "One corollary cuts against the network: a surrogate whose accuracy tracks its training data is weakest exactly "
- "where this class of method is meant to be used, where high-resolution ground truth is scarcest. The concern is "
- "established [7, 8]; this setting adds isolation, since a physics-ordered classical control on "
+ "A corollary cuts against the network: a surrogate whose accuracy tracks its training data is weakest "
+ "where this class of method is meant to be used, where ground truth is scarcest. The concern is "
+ "established [7, 8]; this setting isolates it, since a physics-ordered classical control on "
  "identical inputs makes the network's departure directly observable."))
 
 story.append(P("6&nbsp;&nbsp;Limitations", "h1"))
 story.append(P(
  f"<b>Scope.</b> Every sample is a harmonic ground state at fixed <i>x</i><sub>0</sub> = 0, with only {W} "
- "randomized; shifted potentials, other functional forms (double-well and anharmonic are implemented but "
+ "randomized; shifted potentials, other functional forms (double-well and anharmonic, implemented but "
  f"untrained), and excited states are untested. Test {W} values lie inside the training range, so this "
  "characterizes degradation toward the training edges, not extrapolation."))
 story.append(P(
@@ -315,8 +318,8 @@ story.append(P(
  "unambiguous."))
 story.append(P(
  "<b>Seed variance and configuration.</b> Headline numbers come from one model and one split (seed 42). Across "
- f"five seeds, network mean fidelity spans 0.999832 to 0.999914 and the crossover spans {W} = 1.73 to 2.10, so "
- "the crossover values in Section 4 are one realization and the margin varies with seed; the "
+ f"five seeds, network mean fidelity spans 0.999832 to 0.999914 and the crossover {W} = 1.73 to 2.10, so the "
+ "Section 4 crossover values are one realization and the margin varies with seed; the "
  "inverted-U with a worse low edge appeared in every seed. The architecture was fixed a priori rather than "
  "ablated."))
 story.append(P(
@@ -330,11 +333,11 @@ story.append(P("7&nbsp;&nbsp;Conclusion", "h1"))
 story.append(P(
  "The two methods' errors are organized by different variables, most visibly where the physics is easiest. Spline "
  f"error is perfectly rank-ordered by {W}; since inverting the coarse eigenproblem recovers {W} to "
- f"{e('6.09', 8)}, the coarse input determines the state within the family, so that failure is "
+ f"{e('6.09', 8)}, the input determines the state within the family, so that failure is "
  "representational, not informational. Network error follows an inverted-U that five seeds reproduce. "
- "Widening the training range "
- "moved error off the old edges but not symmetrically onto the new ones, so training density in the shape the "
- "network must produce, rather than in the raw parameter, is the open question. Next steps: a direct test by "
+ "Widening the range "
+ "moved error off the old edges but not symmetrically onto the new ones, so training density in shape space, "
+ "not the raw parameter, is the open question. Next steps: a direct test by "
  f"training uniform in {SG} or log {W}; physics-based evaluation with energy and residual metrics; and "
  "extension to the double-well and anharmonic potentials."))
 story.append(P(
