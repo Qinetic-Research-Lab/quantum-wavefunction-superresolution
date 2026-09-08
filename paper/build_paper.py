@@ -117,7 +117,7 @@ story.append(P(
  "ground truth across a densely sampled parameter family. Since a cubic "
  "spline clears <i>F</i> &gt; 0.99 across the whole range, a higher mean fidelity for the network would say "
  "little; the informative question is what organizes each method's error, and the answer differs: the "
- "spline's by undersampling, the network's by position within its training range."))
+ "spline's by resolution, the network's by position within its training range."))
 story.append(P(
  "Three statements bound the claim. The model is a supervised surrogate, not a physics-informed neural network: "
  "its loss is pure mean-squared error against precomputed eigenvectors, with no Schr\u00f6dinger-residual term, "
@@ -188,7 +188,7 @@ story.append(P(
  "On the 200-sample test set the network reached mean fidelity 0.999832 (median 0.999889, min 0.999328, max "
  f"0.999909, std {e('1.13', 4)}), 0/200 below <i>F</i> = 0.99; the spline reached 0.999790 (min 0.999442, "
  f"max 0.999995, std {e('1.65', 4)}). Across seeds 42 to 46, network mean fidelity is 0.999869 "
- "(range 0.999832 to 0.999914) seed 42, the headline run, "
+ "(range 0.999832 to 0.999914); seed 42, the headline run, "
  "is the lowest of the five. The Fourier baseline as first implemented scored 0.969008, a grid-convention error "
  "rather than a property of Fourier interpolation: the endpoint-inclusive array was transformed as if periodic "
  "in index space, shifting it 0.149 length units at the domain centre. "
@@ -196,10 +196,10 @@ story.append(P(
  f"tracks the spline bin by bin rather than the network, its {W} estimate carrying a mean |\u0394{W}| of 0.13. "
  f"The inversion oracle recovers {W} to a mean |\u0394{W}| of {e('6.09', 8)} (max {e('2.81', 7)}, with no "
  "optimizer failures) and matches the target to a mean infidelity below "
- f"{e('1.1', 16)} in every bin, at the level of double-precision round-off. The coarse input therefore "
- f"determines the state completely within the family, so the losses of the spline and the moment oracle at high "
- f"{W} are those of a family-agnostic estimator rather than missing information, and the network's "
- f"{e('1.68', 4)} lies far above what the input permits."))
+ f"{e('1.1', 16)} in every bin, at double-precision round-off. The coarse input therefore determines the state "
+ f"completely within the family, so the spline's losses at high {W} reflect family-agnosticism and the moment "
+ "oracle's a mis-specified estimator, the analytic identity applied to a finite-difference state, rather than "
+ f"missing information; the network's {e('1.68', 4)} lies far above what the input permits."))
 
 hdr = [f"{W} range", "n", "Spline F", "FFT F", "Moment F", "CNN F",
        "Spline 1\u2212F", "CNN 1\u2212F", "CNN wins"]
@@ -242,7 +242,7 @@ story.append(KeepTogether([tbl, P(
     "FFT is the corrected Fourier baseline.", "cap")]))
 
 img = Image(str(FIG))
-img._restrictSize(TW, 1.25 * inch)
+img._restrictSize(TW, 1.19 * inch)
 story.append(KeepTogether([img, P(
  f"Figure 1: (a) Infidelity against {W} for spline and network on the 200 matched samples (open markers) with "
  f"bin means, log ordinate; the curves cross near {W} \u2248 2 (shaded). (b) Per-sample ratio "
@@ -252,7 +252,7 @@ story.append(P(
  "<b>Two error structures.</b> The clearest evidence comes from where the physics is easiest. In the lowest bin "
  f"the coarse grid is at its most generous, and the spline attains {e('2.03', 5)}, the lowest error of any "
  f"method in any bin; on those same samples the network attains {e('3.20', 4)}, its own worst and roughly "
- "three times its interior error. All three classical baselines attain their lowest error in that bin, where "
+ "three times its interior error. All three non-learned baselines attain their lowest error in that bin, where "
  "the network attains its highest, so undersampling cannot be what the network is failing on. Numerically, "
  "spline infidelity is perfectly "
  f"rank-correlated with {W} ({R} = +1.000, zero inversions) and uncorrelated with the folded predictor "
@@ -286,7 +286,7 @@ story.append(P(
  f"inversion oracle recovers {W} from the same 64 samples to a mean absolute error of {e('6.09', 8)}, so the "
  "information is present and a family-blind interpolant cannot use it. That gap also bears on the network, "
  f"which reaches {e('1.68', 4)} where inverting the same family reaches round-off; inversion costs a fine "
- "solve per sample and is no competing method, but it bounds what the network leaves unclaimed. Its error is "
+ "solve per sample and is no competing method, but bounds what the network leaves unclaimed. Its error is "
  "instead a function of training-set design, and the ablation shows that moving a boundary moves the error, "
  f"though not symmetrically. A candidate explanation is that the relevant density is not in {W} but in the "
  f"shape reproduced: uniform sampling in {W} gives density per unit width {SG} scaling as "
