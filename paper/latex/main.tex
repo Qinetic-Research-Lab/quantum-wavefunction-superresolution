@@ -1,0 +1,366 @@
+\documentclass{article}
+
+% NeurIPS 2026 style file, unmodified, as required by the ML4PS 2026 guidelines.
+% Submission mode (no [final]/[preprint] option) => anonymous, line-numbered.
+\usepackage{neurips_2026}
+
+% ML4PS 2026 requires the conference footer to be replaced with the workshop
+% notice. This is the only permitted deviation; the template itself is untouched.
+\makeatletter
+\renewcommand{\@noticestring}{%
+  Submitted to the 9th Workshop on Machine Learning and the Physical Sciences
+  (ML4PS 2026). Do not distribute.%
+}
+\makeatother
+
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{graphicx}
+
+\title{Where Classical Interpolation and a Convolutional Surrogate Fail:
+Wavefunction Super-Resolution on the 1D Quantum Harmonic Oscillator}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We train a 1D convolutional network to reconstruct 1024-point
+ground-state wavefunctions of the quantum harmonic oscillator from 64-point
+coarse solutions, and compare it with cubic-spline interpolation on 200 matched
+held-out samples. Both clear the $F > 0.99$ fidelity threshold on every sample
+(network mean 0.999832, spline 0.999790), so the comparison turns on how each
+method's error is organized over the frequency range. The difference is sharpest
+where the physics is easiest: in the lowest-frequency bin the spline attains its
+lowest error while the network attains its highest, on identical inputs. Spline infidelity is perfectly
+rank-correlated with frequency (Spearman $\rho = +1.000$), a family-agnostic
+failure, whereas network infidelity follows an inverted-U over the sampled
+interval, worst at both edges ($\rho = +0.861$ against distance from the
+midpoint). Retraining on a wider interval moved error off the old edges but not
+symmetrically onto the new ones, only partly supporting a training-density
+explanation.
+\end{abstract}
+
+\section{Introduction}
+
+Direct solution of the time-independent Schr\"odinger equation (TISE) on a fine
+grid scales badly: an $N$-point 1D problem requires diagonalizing an $N \times N$
+Hamiltonian, and dimension and particle number compound the cost exponentially. A
+natural mitigation is to solve cheaply on a coarse grid and reconstruct the fine
+solution with a learned model. We train a convolutional network, QuantumResNet,
+to map a 64-point coarse ground state of the quantum harmonic oscillator to its
+1024-point counterpart, scored by quantum fidelity.
+
+The 1D oscillator does not need machine learning; it solves in tens of
+milliseconds and offers exact ground truth across a densely sampled family. Since
+a cubic spline clears $F > 0.99$ across the range, a higher mean fidelity would
+say little; the informative question is what organizes each method's error: the
+spline's by resolution, the network's by position within its training range. The model is a supervised
+surrogate, not a physics-informed neural network: its loss is pure mean-squared
+error against precomputed eigenvectors, with no Schr\"odinger-residual term, the
+defining feature of a PINN \citep{raissi2019}. ``Quantum'' here means quantum
+simulation on classical hardware, with no qubits or circuits.
+
+\section{Related Work}
+
+PINNs embed a PDE residual in the training loss \citep{raissi2019}; ours does
+not. Neural operators such as the FNO learn resolution-independent maps with
+zero-shot super-resolution \citep{li2021fno}; ours is resolution-specific but
+reconstructs fine fields from coarse observations of a family indexed by
+$\omega$, as in SRCNN \citep{dong2016}. Closest are convolutional surrogates for
+the Schr\"odinger equation: \citet{mills2017} map a 2D potential to a
+ground-state energy, whereas we reconstruct the eigenvector; \citet{li2025} apply
+super-resolution-inspired upsampling to electron densities, scoring by energy
+error. Neural-network quantum states parameterize the wavefunction variationally
+\citep{carleo2017}. That learned surrogates degrade away from their training
+distribution is well documented: \citet{mouli2024} report neural operators
+failing on out-of-domain PDE inputs at high in-domain accuracy, and
+\citet{gopakumar2026} give conformal coverage across a surrogate's operating
+domain under an exchangeability assumption. What this setting adds is
+separability: a classical baseline on identical inputs has error ordered by
+physics without exception ($\rho = +1.000$, zero inversions across 200 samples),
+so both failure modes are observable side by side.
+
+\section{Methods}
+
+\textbf{System and ground truth.} We solve the 1D TISE in atomic units
+($\hbar = m = 1$), $-\tfrac{1}{2}\psi'' + V(x)\psi = E\psi$, with
+$V(x) = \tfrac{1}{2}\omega^{2}x^{2}$ on $[-10, 10]$ with Dirichlet boundaries. A
+three-point finite-difference stencil yields a sparse Hamiltonian; the ground
+state comes from \texttt{eigsh(H, k=1, which="SA")} at $N = 1024$ (target) and
+$N = 64$ (input). Wavefunctions are $L^{2}$-normalized with fixed sign; only the
+nodeless $n = 0$ state is used, at fixed centre $x_{0} = 0$. The state is a Gaussian of width $\sigma = 1/\sqrt{\omega}$
+against spacing $\Delta x = 20/63 \approx 0.317$, so coarse points per width fall
+from 4.45 at $\omega = 0.5$ to 1.41 at $\omega = 5.0$.
+
+\textbf{Data and training.} 2{,}000 samples, $\omega \sim U[0.5, 5.0]$, seed 42;
+split 72/18/10 (1{,}440/360/200). QuantumResNet maps $[B, 1, 64] \to [B, 1,
+1024]$ through four transposed-convolution stages (kernel 4, stride 2, padding
+1), each followed by a pre-activation residual block (BatchNorm/GELU/Conv1d,
+twice, with skip); 64 channels, 166{,}209 parameters. Adam
+(lr $10^{-3}$, batch 64), MSE loss, cosine annealing over the 30-epoch budget;
+early stopping (patience 7) restored the best-validation checkpoint. A run takes
+113\,s on an Intel Core Ultra 7 256V (CPU). Early stopping did not fire,
+which is not headroom: the schedule drives the learning rate to near zero by
+epoch 30. Robustness checks retrain the same configuration under
+seeds 43--46; one single-seed ablation uses $\omega \in [0.3, 7.0]$,
+$N = 3{,}000$ (448 samples per unit $\omega$ vs the canonical 444).
+
+\textbf{Metrics and baselines.} Fidelity is
+$F = (\sum_{i} \psi_{\mathrm{hr},i}\psi_{\mathrm{pred},i}\Delta x)^{2}$, both
+renormalized under the released code's discrete-sum rule; we report infidelity
+$1 - F$. Baselines: a cubic spline
+(\texttt{CubicSpline}, $64 \to 1024$); Fourier zero-padding applied to the 63
+unique periodic points of the endpoint-inclusive grid; and two oracles that
+assume the harmonic family. The \emph{moment oracle} estimates $\omega$ from the
+coarse input through $\mathrm{var}(x) = 1/(2\omega)$ and emits the analytic state
+$(\omega/\pi)^{1/4}\exp(-\omega x^{2}/2)$. The \emph{inversion oracle} recovers
+$\omega$ by minimizing $1 - F$ between the input and the coarse
+finite-difference state at $\omega$ (bounded Brent, \texttt{xatol} $10^{-8}$,
+seeded from the moment estimate), then emits the fine-grid state there;
+costing a fine solve per sample, it is not a candidate method but a bound on the
+information the coarse input carries. None is tuned. Error shapes use
+Spearman correlations of infidelity against $\omega$ and against
+$|\omega - \omega_{\mathrm{mid}}|$ ($\omega_{\mathrm{mid}} = 2.750$); the second
+predictor is a folded transform of the first, so the pair restates
+Table~\ref{tab:bins} rather than testing between explanations.
+
+\section{Results}
+\label{sec:results}
+
+\textbf{Fidelity.} On the 200-sample test set the network reached mean fidelity
+0.999832 (median 0.999889, min 0.999328, std $1.13 \times 10^{-4}$), 0/200 below
+$F = 0.99$; the spline reached 0.999790 (min 0.999442, std
+$1.65 \times 10^{-4}$). Across seeds 42--46 network mean fidelity is 0.999869
+(0.999832--0.999914); seed 42, the headline run, is the lowest.
+The Fourier baseline initially scored 0.969008 through a grid-convention error,
+not a property of Fourier interpolation: an endpoint-inclusive array transformed
+as periodic in index space, shifting it 0.149 units. Corrected it scores
+0.999770. The moment oracle
+reaches 0.999789 and tracks the spline bin by bin rather than the network, its
+$\omega$ estimate carrying a mean $|\Delta\omega|$ of 0.13. The inversion oracle
+recovers $\omega$ to a mean $|\Delta\omega|$ of $6.09 \times 10^{-8}$ (max
+$2.81 \times 10^{-7}$) and matches the target to a mean
+infidelity below $1.1 \times 10^{-16}$ in every bin, at double-precision
+round-off. The coarse input therefore determines the state completely within the
+family, so the spline's losses at high $\omega$ reflect family-agnosticism and
+the moment oracle's a mis-specified estimator, the analytic identity applied to a
+finite-difference state, rather than missing information; the network's
+$1.68 \times 10^{-4}$ lies far above what the input permits.
+
+\begin{table}[t]
+  \centering
+  \caption{Fidelity and infidelity by $\omega$ bin; all methods on the same 200
+  matched samples (seed 42). FFT is the corrected Fourier baseline.}
+  \label{tab:bins}
+  \scriptsize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lrcccccc}
+    \toprule
+    $\omega$ range & $n$ & Spline $F$ & FFT $F$ & Moment $F$ & CNN $F$ &
+    Spline $1-F$ & CNN $1-F$ \\
+    \midrule
+    $[0.5, 1.4)$ & 36 & 0.999980 & 0.999979 & 0.999981 & 0.999680 & 2.03e$-$5 & 3.20e$-$4 \\
+    $[1.4, 2.3)$ & 36 & 0.999932 & 0.999930 & 0.999936 & 0.999894 & 6.75e$-$5 & 1.06e$-$4 \\
+    $[2.3, 3.2)$ & 46 & 0.999836 & 0.999826 & 0.999840 & 0.999896 & 1.64e$-$4 & 1.04e$-$4 \\
+    $[3.2, 4.1)$ & 42 & 0.999708 & 0.999682 & 0.999709 & 0.999892 & 2.92e$-$4 & 1.08e$-$4 \\
+    $[4.1, 5.0]$ & 40 & 0.999527 & 0.999466 & 0.999511 & 0.999777 & 4.73e$-$4 & 2.23e$-$4 \\
+    \midrule
+    Overall & 200 & 0.999790 & 0.999770 & 0.999789 & 0.999832 & 2.10e$-$4 & 1.68e$-$4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Matched comparison.} The network wins 132 of 200 matched samples (66\%;
+one-sided binomial $p = 3.5 \times 10^{-6}$; Wilcoxon on paired infidelities
+$W = 6588$, $p = 2.4 \times 10^{-5}$), with $1.25\times$ lower mean infidelity.
+Both clear $F > 0.99$ on every sample, so these are differences in the structure
+of very small errors, not a pass/fail separation. The aggregate conceals a
+reversal (Figure~\ref{fig:err}): the network loses all 36 samples in the lowest
+bin and 32 of 36 in the second, then wins all 128 above; below $\omega = 1.5$ it
+wins 0 of 42, and at $\omega \geq 3.5$ 65 of 65 with $2.31\times$ lower mean
+infidelity. For this seed the spline's last win falls at $\omega = 2.03$ and the
+network wins every sample from $\omega = 2.09$ up; across five seeds that run
+begins between $\omega = 1.73$ and 2.10 (mean 1.95) with 122--157 wins of 200, so
+the crossover is a band, not a fixed value.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.76\linewidth]{figure1.png}
+  \caption{(a) Infidelity against $\omega$ for spline and network on the 200
+  matched samples (open markers) with bin means, log ordinate; the curves cross
+  near $\omega \approx 2$ (shaded). (b) Per-sample ratio of spline to network
+  infidelity, crossing unity at the same transition.}
+  \label{fig:err}
+\end{figure}
+
+\textbf{Two error structures.} The clearest evidence is where the physics is
+easiest. In the lowest bin the spline attains $2.03 \times 10^{-5}$, the lowest
+error of any method in any bin, while the network attains
+$3.20 \times 10^{-4}$, its own worst and three times its interior error. All three non-learned baselines attain their lowest
+error in that bin, where the network attains its highest, so undersampling cannot
+be what the network is failing on. Numerically, spline infidelity is perfectly
+rank-correlated with $\omega$ ($\rho = +1.000$, zero inversions) and uncorrelated
+with the folded predictor ($\rho = +0.031$, $p = 0.66$); network infidelity is
+uncorrelated with $\omega$ ($\rho = +0.026$, $p = 0.71$) and strongly correlated
+with distance from the midpoint ($\rho = +0.861$, $p = 4.0 \times 10^{-60}$).
+Re-expressing the predictor as $\sigma = 1/\sqrt{\omega}$ or $\log\omega$ leaves
+these unchanged up to sign, as monotone reparametrization must, excluding a
+parametrization artefact. Low-edge infidelity exceeds
+high-edge by $1.433\times$.
+
+A distributional reading fits this: accuracy set by local training density, worst
+where a sample has neighbours on one side only. Retraining once on
+$\omega \in [0.3, 7.0]$ at matched density held that prediction only in part.
+Both former edges improved once interior, but unequally: the high edge fell from
+$2.23 \times 10^{-4}$ to $5.45 \times 10^{-5}$, indistinguishable from the
+interior 5--$6 \times 10^{-5}$, while the low edge improved about threefold, from
+$3.20 \times 10^{-4}$ to $1.09 \times 10^{-4}$, but remains roughly twice
+interior. Error then concentrated at the new low edge ($3.15 \times 10^{-4}$ for
+$\omega < 0.5$, $n = 9$) but only mildly at the new high edge
+($7.40 \times 10^{-5}$); mean fidelity rose to 0.999923 and the crossover moved
+to $\omega = 1.53$. Edge error follows the training boundary, but
+asymmetrically, which distance to the boundary alone does not explain, and the
+alternative that extremal widths are intrinsically hard for a fixed receptive
+field is not excluded. The ablation is one seed, its new low bin nine samples.
+
+\section{Discussion}
+\label{sec:discussion}
+
+The spline's error is bounded not by its input's information but by
+family-agnosticism: the inversion oracle recovers $\omega$ from the same 64
+samples to $6.09 \times 10^{-8}$, so the information is present and a
+family-blind interpolant cannot use it. That gap also bears on the
+network, which reaches $1.68 \times 10^{-4}$ where inverting the same family
+reaches round-off; inversion costs a fine solve per sample and is no competing
+method, but bounds what the network leaves unclaimed. Its error is instead a
+function of training-set design: moving a boundary moves the error, though not
+symmetrically. A candidate explanation is that the relevant density is not in
+$\omega$ but in the shape reproduced, since uniform sampling in $\omega$ gives
+density per unit width $\sigma$ scaling as $2/\sigma^{3}$, leaving broad,
+low-$\omega$ states sparsest even after widening. That is an
+inference, not a tested claim; a direct test would sample uniformly in $\sigma$
+or $\log\omega$.
+
+A corollary cuts against the network: a surrogate whose accuracy tracks its
+training data is weakest where this class of method is meant to be used, where
+ground truth is scarcest \citep{mouli2024, gopakumar2026}; this setting isolates
+that, since a physics-ordered control on identical inputs makes the departure
+observable.
+
+\section{Limitations}
+
+\textbf{Scope.} Every sample is a harmonic ground state at fixed $x_{0} = 0$,
+only $\omega$ randomized; shifted potentials, other forms (double-well and
+anharmonic, implemented but untrained), and excited states are untested. Test
+$\omega$ lies inside the training range, so this characterizes degradation
+toward the edges, not extrapolation.
+
+\textbf{Mechanism attribution.} The distributional explanation rests on the
+low-$\omega$ asymmetry, the error shape, and one widened-range retrain. That
+retrain moved edge error inward but left the new edges unequal, settling neither
+the distance-to-boundary account nor the receptive-field alternative, and raising
+a third, untested candidate: sampling density in shape space. It is
+single-seed, its new low bin holds nine samples, and trains on 1.5 times the
+samples and gradient steps of the canonical run, so its lower interior error is
+not purely a range effect. The rank correlations add no independent support, and
+``interior'' is unambiguous only in one dimension.
+
+\textbf{Seed variance.} Headline numbers come from one model and one split (seed
+42). Across five seeds, network mean fidelity spans 0.999832 to 0.999914 and the
+crossover $\omega = 1.73$ to 2.10, so the Section~4 crossover values are one
+realization and the margin varies with seed; the inverted-U with a worse low edge
+appeared in every seed. The architecture was fixed a priori, not ablated.
+
+\textbf{Fidelity is the only accuracy metric.} It is an amplitude-weighted global
+overlap, insensitive to high-frequency content and boundary violation, both
+visible in this model's residuals. Since the kinetic operator involves a second
+derivative, a reconstruction scoring well on fidelity may score worse on energy
+or $\lVert H\psi - E\psi \rVert$; no such metric was computed, and the ranking
+may not survive one.
+
+\section{Conclusion}
+
+The two methods' errors are organized by different variables, most visibly where
+the physics is easiest. Spline error is perfectly rank-ordered by $\omega$; since
+inverting the coarse eigenproblem recovers $\omega$ to $6.09 \times 10^{-8}$, the
+input determines the state within the family, so that failure is
+representational, not informational. Network error follows an inverted-U that
+five seeds reproduce, and widening the range moved error off the old edges but
+not symmetrically onto the new ones, leaving training density in shape space as
+the open question. Next steps: training uniform in $\sigma$ or $\log\omega$;
+physics-based evaluation with energy and residual metrics; and extension to the
+double-well and anharmonic potentials.
+
+\textbf{Use of LLMs.} LLM assistance was used for drafting, analysis code
+(Fourier correction, both oracles, ablation, seed replication) and auditing of
+numbers and citations; all results were verified against the released code.
+\textbf{Code and data.} An anonymized snapshot of the code, checkpoints, metrics
+and analysis scripts accompanies this submission and regenerates every number
+reported.
+
+\begin{thebibliography}{9}
+
+\bibitem[Raissi et al.(2019)]{raissi2019}
+M.~Raissi, P.~Perdikaris, and G.~E. Karniadakis.
+\newblock Physics-informed neural networks: a deep learning framework for
+  solving forward and inverse problems involving nonlinear partial differential
+  equations.
+\newblock \emph{Journal of Computational Physics}, 378:686--707, 2019.
+
+\bibitem[Li et al.(2021)]{li2021fno}
+Z.~Li, N.~Kovachki, K.~Azizzadenesheli, B.~Liu, K.~Bhattacharya, A.~Stuart, and
+  A.~Anandkumar.
+\newblock Fourier neural operator for parametric partial differential equations.
+\newblock In \emph{International Conference on Learning Representations (ICLR)},
+  2021.
+
+\bibitem[Dong et al.(2016)]{dong2016}
+C.~Dong, C.~C. Loy, K.~He, and X.~Tang.
+\newblock Image super-resolution using deep convolutional networks.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  38(2):295--307, 2016.
+
+\bibitem[Mills et al.(2017)]{mills2017}
+K.~Mills, M.~Spanner, and I.~Tamblyn.
+\newblock Deep learning and the Schr\"odinger equation.
+\newblock \emph{Physical Review A}, 96(4):042113, 2017.
+
+\bibitem[Li et al.(2025)]{li2025}
+C.~Li, O.~Sharir, S.~Yuan, and G.~K. Chan.
+\newblock Image super-resolution inspired electron density prediction.
+\newblock \emph{Nature Communications}, 16:4811, 2025.
+
+\bibitem[Carleo and Troyer(2017)]{carleo2017}
+G.~Carleo and M.~Troyer.
+\newblock Solving the quantum many-body problem with artificial neural networks.
+\newblock \emph{Science}, 355(6325):602--606, 2017.
+
+\bibitem[Mouli et al.(2024)]{mouli2024}
+S.~C. Mouli, D.~C. Maddix, S.~Alizadeh, G.~Gupta, A.~Stuart, M.~W. Mahoney, and
+  Y.~Wang.
+\newblock Using uncertainty quantification to characterize and improve
+  out-of-domain learning for PDEs.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem[Gopakumar et al.(2026)]{gopakumar2026}
+V.~Gopakumar, A.~Gray, J.~Oskarsson, L.~Zanisi, D.~Giles, M.~J. Kusner,
+  S.~Pamela, and M.~P. Deisenroth.
+\newblock Uncertainty quantification of surrogate models using conformal
+  prediction.
+\newblock \emph{Machine Learning: Science and Technology}, 7(1):015025, 2026.
+
+\end{thebibliography}
+
+\end{document}
