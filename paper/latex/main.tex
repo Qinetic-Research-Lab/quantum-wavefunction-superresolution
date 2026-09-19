@@ -150,8 +150,8 @@ as periodic in index space, shifting it 0.149 units. Corrected it scores
 0.999770. The moment oracle
 reaches 0.999789 and tracks the spline bin by bin rather than the network, its
 $\omega$ estimate carrying a mean $|\Delta\omega|$ of 0.13. The inversion oracle
-recovers $\omega$ to a mean $|\Delta\omega|$ of $6.09 \times 10^{-8}$ (max
-$2.81 \times 10^{-7}$) and matches the target to a mean
+recovers $\omega$ to a mean $|\Delta\omega|$ of about $6 \times 10^{-8}$ (max
+about $3 \times 10^{-7}$) and matches the target to a mean
 infidelity below $1.1 \times 10^{-16}$ in every bin, at double-precision
 round-off. The coarse input therefore determines the state completely within the
 family, so the spline's losses at high $\omega$ reflect family-agnosticism and
@@ -206,9 +206,9 @@ the crossover is a band, not a fixed value.
 \end{figure}
 
 \textbf{Two error structures.} The clearest evidence is where the physics is
-easiest. In the lowest bin the spline attains $2.03 \times 10^{-5}$, the lowest
-error of any method in any bin, while the network attains
-$3.20 \times 10^{-4}$, its own worst and three times its interior error. All three non-learned baselines attain their lowest
+easiest. In the lowest bin the spline attains $2.03 \times 10^{-5}$, its own lowest
+error and below the network's in every bin, while the network attains
+$3.20 \times 10^{-4}$, its own worst and three times its interior error. All three baselines in Table~\ref{tab:bins} attain their lowest
 error in that bin, where the network attains its highest, so undersampling cannot
 be what the network is failing on. Numerically, spline infidelity is perfectly
 rank-correlated with $\omega$ ($\rho = +1.000$, zero inversions) and uncorrelated
@@ -240,7 +240,7 @@ field is not excluded. The ablation is one seed, its new low bin nine samples.
 
 The spline's error is bounded not by its input's information but by
 family-agnosticism: the inversion oracle recovers $\omega$ from the same 64
-samples to $6.09 \times 10^{-8}$, so the information is present and a
+samples to about $6 \times 10^{-8}$, so the information is present and a
 family-blind interpolant cannot use it. That gap also bears on the
 network, which reaches $1.68 \times 10^{-4}$ where inverting the same family
 reaches round-off; inversion costs a fine solve per sample and is no competing
@@ -294,7 +294,7 @@ may not survive one.
 
 The two methods' errors are organized by different variables, most visibly where
 the physics is easiest. Spline error is perfectly rank-ordered by $\omega$; since
-inverting the coarse eigenproblem recovers $\omega$ to $6.09 \times 10^{-8}$, the
+inverting the coarse eigenproblem recovers $\omega$ to about $6 \times 10^{-8}$, the
 input determines the state within the family, so that failure is
 representational, not informational. Network error follows an inverted-U that
 five seeds reproduce, and widening the range moved error off the old edges but
@@ -303,9 +303,10 @@ the open question. Next steps: training uniform in $\sigma$ or $\log\omega$;
 physics-based evaluation with energy and residual metrics; and extension to the
 double-well and anharmonic potentials.
 
-\textbf{Use of LLMs.} LLM assistance was used for drafting, analysis code
-(Fourier correction, both oracles, ablation, seed replication) and auditing of
-numbers and citations; all results were verified against the released code.
+\textbf{Use of LLMs.} LLM assistance was used for drafting, experiment design
+and interpretation, analysis code (Fourier correction, both oracles, ablation,
+seed replication) and auditing of numbers and citations; all results were
+verified against the released code.
 \textbf{Code and data.} An anonymized snapshot of the code, checkpoints, metrics
 and analysis scripts accompanies this submission and regenerates every number
 reported.
